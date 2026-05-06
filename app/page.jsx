@@ -50,8 +50,10 @@ export default function HomePage() {
   const [cleanInfo, setCleanInfo] = useState('');
   const [cancelRequested, setCancelRequested] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const controllerRef = useRef(null);
   const cancelRequestedRef = useRef(false);
+  const isPausedRef = useRef(false);
 
   // Test function to verify JavaScript works
   const testFunction = () => {
@@ -228,6 +230,13 @@ export default function HomePage() {
     }
   }
 
+  function togglePauseProcessing() {
+    if (!isLoading || isStopping) return;
+    const nextPaused = !isPaused;
+    setIsPaused(nextPaused);
+    isPausedRef.current = nextPaused;
+  }
+
   async function checkDomains() {
     if (isLoading) return;
 
@@ -251,6 +260,8 @@ export default function HomePage() {
     setCancelRequested(false);
     cancelRequestedRef.current = false;
     setIsStopping(false);
+    setIsPaused(false);
+    isPausedRef.current = false;
 
     controllerRef.current = new AbortController();
     const signal = controllerRef.current.signal;
@@ -289,6 +300,10 @@ export default function HomePage() {
 
     async function worker() {
       while (!cancelRequestedRef.current && !signal.aborted) {
+        while (isPausedRef.current && !cancelRequestedRef.current && !signal.aborted) {
+          await sleep(500);
+        }
+
         const currentIndex = nextIndex;
         nextIndex += 1;
         if (currentIndex >= domainsToCheck.length) break;
@@ -454,9 +469,14 @@ export default function HomePage() {
               {isLoading ? 'Đang Quét...' : 'Bắt Đầu Quét Tốc Độ Cao'}
             </button>
             {isLoading && (
-              <button onClick={stopProcessing} disabled={isStopping} style={styles.cancelButton}>
-                {isStopping ? 'Đang Dừng...' : 'Hủy Bỏ'}
-              </button>
+              <>
+                <button onClick={togglePauseProcessing} disabled={isStopping} style={styles.pauseButton}>
+                  {isPaused ? 'Tiếp tục' : 'Tạm dừng'}
+                </button>
+                <button onClick={stopProcessing} disabled={isStopping} style={styles.cancelButton}>
+                  {isStopping ? 'Đang Dừng...' : 'Dừng hẳn'}
+                </button>
+              </>
             )}
             <button onClick={dedupeDomains} disabled={isLoading} style={styles.outlineButton}>
               Lọc & Làm Sạch
@@ -733,6 +753,17 @@ const styles = {
     borderRadius: 16,
     fontWeight: 700,
     fontSize: 14,
+    cursor: 'pointer',
+    minWidth: 180,
+  },
+  pauseButton: {
+    border: 0,
+    background: 'linear-gradient(90deg, #f59e0b, #d97706)',
+    color: '#fff',
+    padding: '16px 22px',
+    borderRadius: 16,
+    fontWeight: 800,
+    fontSize: 15,
     cursor: 'pointer',
     minWidth: 180,
   },
